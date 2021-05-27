@@ -1,3 +1,4 @@
+from io import IncrementalNewlineDecoder
 from typing import Tuple
 from datetime import datetime
 import glob
@@ -8,7 +9,6 @@ import numpy as np
 # Datasets paths
 assays_path = "INVITRODB_V3_3_SUMMARY/assay_methods_invitrodb_v3_3.xlsx"
 targets_path = "INVITRODB_V3_3_SUMMARY/gene_target_information_invitrodb_v3_3.xlsx"
-quality_stats_path = "INVITRODB_V3_3_SUMMARY/Assay_Quality_Summary_Stats_200819.csv"
 conc_curves_paths = glob.glob("INVITRODB_V3_3_SUMMARY/EXPORT_*.csv")
 
 # Columns of interest
@@ -19,7 +19,6 @@ assays_cols = [
     "biological_process_target", "organism", "tissue",
     "cell_format", "cell_short_name", "assay_format_type"]
 targets_cols = ["official_symbol", "aenm"]
-quality_stats_cols = ["aenm", "acnt"]
 conc_curves_cols = ["aenm", "hitc", "flags"]
 
 
@@ -28,8 +27,6 @@ def load_data(
     assays_cols: list,
     targets_path: str,
     targets_cols: list,
-    quality_stats_path: str,
-    quality_stats_cols: list,
     conc_curves_paths: str,
     conc_curves_cols: list
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -41,31 +38,22 @@ def load_data(
                             sheet_name="Sheet 1",
                             engine = 'openpyxl')[targets_cols]
 
-    quality_stats = pd.read_csv(quality_stats_path)[quality_stats_cols]
-
     conc_curves = [pd.read_csv(f, usecols=conc_curves_cols) for f in conc_curves_paths]
     conc_curves = pd.concat(conc_curves, ignore_index=True)
-    return assays, targets, quality_stats, conc_curves
+    return assays, targets, conc_curves
 
 def enrich_assays(
     assays: pd.DataFrame,
     targets: pd.DataFrame,
-    quality_stats: pd.DataFrame,
     conc_curves: pd.DataFrame
 ) -> pd.DataFrame:
     assays_enriched = (assays
-        # Merge assays with targets and quality_stats table
+        # Merge assays with targets and concentration fitting curves tables
         .merge(
             targets,
             left_on="assay_component_endpoint_name",
             right_on="aenm",
             how="inner")
-        .merge(
-            quality_stats,
-            left_on="assay_component_endpoint_name",
-            right_on="aenm",
-            how="inner"
-        )
         .merge(
             conc_curves,
             left_on="assay_component_endpoint_name",
@@ -85,13 +73,12 @@ def filter_assays(
         .query('intended_target_family_sub != "cytotoxicity" or biological_process_target != ["cell death", "cell proliferation"]')
         # Filter out endpoints describing features associated with assay background effects
         .query('assay_function_type != "background control" or assay_design_type != ["background reporter", "viability reporter"] or intended_target_family != "background measurement"')
-        # Filter out assays without active samples
-        #.query('acnt != 0')
         # Keep only active assays
         .query('hitc == 1')
         # Filter out potential false positives assays (flagged)
         #.query('flags ')
     )
+    assays = assays[pd.isna(assays["flags"]) == True]
     return assays
 
 def adjust_tissue(
@@ -106,13 +93,12 @@ def adjust_tissue(
 
 
 if __name__ == '__main__':
-    assays, targets, quality_stats, conc_curves = load_data(
+    assays, targets, conc_curves = load_data(
         assays_path, assays_cols,
         targets_path, targets_cols,
-        quality_stats_path, quality_stats_cols,
         conc_curves_paths, conc_curves_cols
     )
-    assays_enriched = enrich_assays(assays, targets, quality_stats, conc_curves)
+    assays_enriched = enrich_assays(assays, targets, conc_curves)
     adjust_tissue(assays_enriched)
     assays_filtered = filter_assays(assays_enriched)
     out = (assays_filtered
@@ -123,9 +109,9 @@ if __name__ == '__main__':
         # Select features of interest
         [[
             "aeid", "assay_component_endpoint_name", "assay_function_type",
-            "intended_target_family", "assay_component_desc", "biological_process_target",
-            "tissue", "cell_format", "cell_short_name", "cell_short_name",
-            "assay_format_type", "official_symbol"
+            "intended_target_family", "assay_component_desc",
+            "biological_process_target", "tissue", "cell_format",
+            "cell_short_name", "assay_format_type", "official_symbol"
         ]]
     )
 
