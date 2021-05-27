@@ -2,7 +2,7 @@
 Processes the ToxCast Summary files to prepare it for ingestion in the target safety object. 
 '''
 from datetime import datetime
-import glob
+from glob import glob
 from typing import Tuple
 
 import pandas as pd
@@ -11,7 +11,7 @@ import numpy as np
 # Datasets paths
 assays_path = "INVITRODB_V3_3_SUMMARY/assay_methods_invitrodb_v3_3.xlsx"
 targets_path = "INVITRODB_V3_3_SUMMARY/gene_target_information_invitrodb_v3_3.xlsx"
-conc_curves_paths = glob.glob("INVITRODB_V3_3_SUMMARY/EXPORT_*.csv")
+conc_curves_paths = glob("INVITRODB_V3_3_SUMMARY/EXPORT_*.csv")
 
 # Columns of interest
 assays_cols = [
@@ -117,8 +117,8 @@ if __name__ == '__main__':
         ]]
     )
 
-    print(out["assay_component_endpoint_name"].nunique())
-    print(out["official_symbol"].nunique())
+    print(f'Unique assay endpoints: {out["assay_component_endpoint_name"].nunique()}')
+    print(f'Unique targets: {out["official_symbol"].nunique()}')
     out.to_csv(
         f"ToxCast_{datetime.today().strftime('%Y-%m-%d')}.tsv",
         sep="\t",
