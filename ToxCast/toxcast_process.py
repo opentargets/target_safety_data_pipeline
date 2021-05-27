@@ -1,7 +1,9 @@
-from io import IncrementalNewlineDecoder
-from typing import Tuple
+'''
+Processes the ToxCast Summary files to prepare it for ingestion in the target safety object. 
+'''
 from datetime import datetime
 import glob
+from typing import Tuple
 
 import pandas as pd
 import numpy as np
