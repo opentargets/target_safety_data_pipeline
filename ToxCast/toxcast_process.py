@@ -13,8 +13,8 @@ conc_curves_paths = glob.glob("INVITRODB_V3_3_SUMMARY/EXPORT_*.csv")
 
 # Columns of interest
 assays_cols = [
-    "assay_component_endpoint_name", "acid",
-    "assay_component_name", "assay_function_type", "intended_target_family",
+    "aeid", "assay_component_endpoint_name",
+    "assay_function_type", "intended_target_family",
     "intended_target_family_sub", "assay_component_desc", "assay_design_type",
     "biological_process_target", "organism", "tissue",
     "cell_format", "cell_short_name", "assay_format_type"]
@@ -72,14 +72,6 @@ def enrich_assays(
             right_on="aenm",
             how="inner"
         )
-        # Drop unnecessary columns
-        .drop(
-            ["aenm_x", "aenm_y"], axis=1
-        )
-        # Drop duplicates
-        .drop_duplicates(
-            subset=["assay_component_name", "biological_process_target", "official_symbol"]
-        )
     )
     return assays_enriched
 
@@ -120,11 +112,26 @@ if __name__ == '__main__':
         quality_stats_path, quality_stats_cols,
         conc_curves_paths, conc_curves_cols
     )
-    print(assays.iloc[0])
-    print(conc_curves.iloc[0])
     assays_enriched = enrich_assays(assays, targets, quality_stats, conc_curves)
     adjust_tissue(assays_enriched)
-    out = filter_assays(assays_enriched)
-    print(out["assay_component_name"].nunique())
+    assays_filtered = filter_assays(assays_enriched)
+    out = (assays_filtered
+        # Drop duplicates
+        .drop_duplicates(
+            subset=["assay_component_endpoint_name", "biological_process_target", "official_symbol"]
+        )
+        # Select features of interest
+        [[
+            "aeid", "assay_component_endpoint_name", "assay_function_type",
+            "intended_target_family", "assay_component_desc", "biological_process_target",
+            "tissue", "cell_format", "cell_short_name", "cell_short_name",
+            "assay_format_type", "official_symbol"
+        ]]
+    )
+
+    print(out["assay_component_endpoint_name"].nunique())
     print(out["official_symbol"].nunique())
-    out.to_csv(f"ToxCast_{datetime.today().strftime('%Y-%m-%d')}.tsv", sep="\t", header=True, index=False)    
+    out.to_csv(
+        f"ToxCast_{datetime.today().strftime('%Y-%m-%d')}.tsv",
+        sep="\t",
+        header=True, index=False)    
